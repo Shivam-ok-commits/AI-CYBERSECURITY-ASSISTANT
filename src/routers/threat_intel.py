@@ -56,8 +56,9 @@ def _save_ioc(indicator: str, ioc_type: str, result: dict):
 # ── 4.1 IOC Extraction ──
 
 @router.post("/extract", response_model=IOCExtractionResponse)
-def extract_ioc_endpoint(body: dict):
-    text = body.get("text", "")
+def extract_ioc_endpoint(text: str = Query(""), body: dict | None = None):
+    if body:
+        text = body.get("text") or text
     if not text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="text field required")
     return extract_iocs(text)
