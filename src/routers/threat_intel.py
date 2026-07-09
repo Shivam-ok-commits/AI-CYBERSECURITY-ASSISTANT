@@ -226,6 +226,29 @@ def correlate_global(user: dict = Depends(get_current_user)):
     return correlate_iocs([dict(r) for r in rows])
 
 
+@router.post("/correlate")
+def correlate_iocs_endpoint(body: dict, user: dict = Depends(get_current_user)):
+    iocs = body.get("iocs", [])
+    if not iocs:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="iocs list required")
+    from src.services.ioc_correlation import get_ioc_reputation
+    groups = []
+    for ioc in iocs[:20]:
+        ioc_type = "ip"
+        if "://" in ioc or ioc.startswith("hxxp"):
+            ioc_type = "url"
+        elif any(c in ioc for c in ".") and not ioc.replace(".", "").isdigit():
+            ioc_type = "domain"
+        elif len(ioc) == 32:
+            ioc_type = "md5"
+        elif len(ioc) == 40:
+            ioc_type = "sha1"
+        elif len(ioc) == 64:
+            ioc_type = "sha256"
+        groups.append({"name": ioc, "type": ioc_type, "iocs": [ioc], "reputation": "unknown"})
+    return {"groups": groups, "total": len(groups)}
+
+
 @router.get("/correlate/{log_id}", response_model=CorrelationResult)
 def correlate(log_id: int, user: dict = Depends(get_current_user)):
     with get_db() as conn:

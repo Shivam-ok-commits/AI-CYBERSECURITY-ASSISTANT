@@ -53,11 +53,17 @@ def detect_brute_force(events: list[dict], threshold: int = 5, window_minutes: i
         if len(timestamps) < threshold:
             continue
         parsed = []
+        current_year = datetime.now().year
         for t in timestamps:
             try:
                 for fmt in ("%b %d %H:%M:%S", "%d/%b/%Y:%H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%m/%d/%Y %H:%M:%S"):
                     try:
-                        parsed.append(datetime.strptime(t[:19], fmt))
+                        ts = t[:19]
+                        if "%Y" not in fmt:
+                            ts = f"{current_year} {ts}"
+                            parsed.append(datetime.strptime(ts, f"%Y {fmt}"))
+                        else:
+                            parsed.append(datetime.strptime(ts, fmt))
                         break
                     except ValueError:
                         continue

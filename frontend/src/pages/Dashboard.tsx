@@ -30,7 +30,6 @@ export default function Dashboard() {
   const totalRules = (analytics as Record<string, unknown>)?.total_rules ?? 0;
   const recentActivity = logStats?.recent_activity as Array<Record<string, string>> | undefined;
   const byCategory = (analytics as Record<string, unknown>)?.by_category as Record<string, number> | undefined;
-  const fpRate = (analytics as Record<string, unknown>)?.false_positive_rate;
 
   return (
     <div className="space-y-6">
