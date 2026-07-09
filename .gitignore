@@ -8,10 +8,13 @@ __pycache__/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # Logs
 logs/
 *.log
+*.err
 
 # VS Code
 .vscode/
@@ -27,3 +30,18 @@ Thumbs.db
 
 # Pytest
 .pytest_cache/
+
+# Runtime database
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Uploaded evidence
+data/uploads/
+
+# Future backups & cache
+data/backups/
+data/cache/
+
+# Docker
+ssl/*.pem

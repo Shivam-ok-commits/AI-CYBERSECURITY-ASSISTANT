@@ -1,0 +1,15 @@
+.venv
+.venv/
+__pycache__
+*.pyc
+.pytest_cache
+.git
+.gitignore
+.env
+.env.example
+.env.production
+data/
+logs/
+tests/
+*.md
+pytest.ini
