@@ -1,8 +1,9 @@
-import { app, ipcMain, dialog, shell, BrowserWindow } from "electron";
+import { app, ipcMain, dialog, shell, Notification, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { createMainWindow, getMainWindow } from "./window";
 import { BackendManager } from "./backend";
+import { createTray, destroyTray } from "./tray";
 
 const store: any = new (require("electron-store"))({
   name: "sentinel-settings",
@@ -10,6 +11,10 @@ const store: any = new (require("electron-store"))({
 });
 
 const backend = new BackendManager();
+let backupInterval: ReturnType<typeof setInterval> | null = null;
+
+// Extend App type for isQuitting flag
+const appAny = app as unknown as { isQuitting?: boolean };
 
 function getStoragePath(): string {
   const base = app.getPath("userData");
@@ -29,6 +34,50 @@ function ensureDirectories(): void {
   }
 }
 
+function getRecentFiles(): string[] {
+  return (store.get("recentFiles") as string[]) || [];
+}
+
+function addRecentFile(filePath: string): void {
+  const files = getRecentFiles().filter((f) => f !== filePath);
+  files.unshift(filePath);
+  store.set("recentFiles", files.slice(0, 20));
+}
+
+function showNativeNotification(title: string, body: string): void {
+  if (Notification.isSupported()) {
+    new Notification({ title, body, icon: undefined });
+  }
+}
+
+function runBackup(): void {
+  try {
+    const userData = app.getPath("userData");
+    const dbPath = path.join(userData, "sentinel.db");
+    const backupsDir = path.join(userData, "backups");
+
+    if (!fs.existsSync(dbPath)) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupPath = path.join(backupsDir, `sentinel-${timestamp}.db`);
+    fs.copyFileSync(dbPath, backupPath);
+
+    // Clean up backups older than 30 days
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    for (const file of fs.readdirSync(backupsDir)) {
+      if (!file.startsWith("sentinel-")) continue;
+      const filePath = path.join(backupsDir, file);
+      try {
+        if (fs.statSync(filePath).mtimeMs < cutoff) {
+          fs.unlinkSync(filePath);
+        }
+      } catch { /* skip */ }
+    }
+  } catch (err) {
+    console.error("[backup] Failed:", err);
+  }
+}
+
 app.whenReady().then(async () => {
   ensureDirectories();
   registerIpcHandlers();
@@ -45,22 +94,51 @@ app.whenReady().then(async () => {
     return;
   }
 
-  createMainWindow();
+  const mainWindow = createMainWindow();
+
+  createTray(mainWindow);
+
+  // Minimize to tray instead of closing
+  mainWindow.on("close", (event) => {
+    if (!appAny.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      showNativeNotification(
+        "Sentinel is still running",
+        "The app has been minimized to the system tray. Use the tray icon to reopen."
+      );
+    }
+  });
+
+  // Start auto-backup (every 6 hours)
+  backupInterval = setInterval(runBackup, 6 * 60 * 60 * 1000);
+  runBackup();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
+    } else {
+      mainWindow.show();
     }
   });
 });
 
 app.on("before-quit", () => {
   backend.kill();
+  if (backupInterval) clearInterval(backupInterval);
 });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
+  }
+});
+
+// Handle renderer -> main IPC for tray menu actions
+ipcMain.on("file:open-recent", (_event, filePath: string) => {
+  const win = getMainWindow();
+  if (win) {
+    win.webContents.send("file:open-recent", filePath);
   }
 });
 
@@ -83,6 +161,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.on("app:quit", () => {
+    appAny.isQuitting = true;
     app.quit();
   });
 
@@ -94,6 +173,7 @@ function registerIpcHandlers(): void {
       filters: options?.filters,
     });
     if (result.canceled) return null;
+    for (const p of result.filePaths) addRecentFile(p);
     return result.filePaths;
   });
 
@@ -109,6 +189,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("file:read", async (_event, filePath: string) => {
+    addRecentFile(filePath);
     return fs.readFileSync(filePath, "utf-8");
   });
 
@@ -135,6 +216,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("file:readBuffer", async (_event, filePath: string) => {
+    addRecentFile(filePath);
     const buffer = fs.readFileSync(filePath);
     return buffer.toString("base64");
   });
@@ -146,6 +228,39 @@ function registerIpcHandlers(): void {
       name: path.basename(filePath),
       ext: path.extname(filePath),
     };
+  });
+
+  ipcMain.handle("notify:show", (_event, title: string, body: string) => {
+    showNativeNotification(title, body);
+  });
+
+  ipcMain.handle("recent:list", () => {
+    return getRecentFiles();
+  });
+
+  ipcMain.handle("recent:add", (_event, filePath: string) => {
+    addRecentFile(filePath);
+  });
+
+  ipcMain.handle("backup:run", () => {
+    runBackup();
+    return { success: true };
+  });
+
+  ipcMain.handle("backup:status", () => {
+    const backupsDir = path.join(app.getPath("userData"), "backups");
+    try {
+      const files = fs.readdirSync(backupsDir)
+        .filter((f) => f.startsWith("sentinel-"))
+        .map((f) => {
+          const stat = fs.statSync(path.join(backupsDir, f));
+          return { name: f, size: stat.size, date: stat.mtime.toISOString() };
+        })
+        .sort((a, b) => b.date.localeCompare(a.date));
+      return { total: files.length, latest: files[0] || null, backups: files.slice(0, 10) };
+    } catch {
+      return { total: 0, latest: null, backups: [] };
+    }
   });
 
   ipcMain.on("window:minimize", () => {
@@ -181,5 +296,3 @@ function registerIpcHandlers(): void {
     store.delete(key);
   });
 }
-
-export { getStoragePath };

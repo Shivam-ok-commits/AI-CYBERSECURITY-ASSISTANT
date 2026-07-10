@@ -37,6 +37,11 @@ contextBridge.exposeInMainWorld("sentinel", {
     readBuffer: (filePath: string) => ipcRenderer.invoke("file:readBuffer", filePath),
     write: (filePath: string, data: string) => ipcRenderer.invoke("file:write", filePath, data),
     getStats: (filePath: string) => ipcRenderer.invoke("file:getStats", filePath),
+    onOpenRecent: (cb: (filePath: string) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, filePath: string) => cb(filePath);
+      ipcRenderer.on("file:open-recent", handler);
+      return () => ipcRenderer.removeListener("file:open-recent", handler);
+    },
   },
 
   window: {
@@ -58,5 +63,19 @@ contextBridge.exposeInMainWorld("sentinel", {
     get: (key: string) => ipcRenderer.invoke("storage:get", key),
     set: (key: string, value: unknown) => ipcRenderer.invoke("storage:set", key, value),
     delete: (key: string) => ipcRenderer.invoke("storage:delete", key),
+  },
+
+  notifications: {
+    show: (title: string, body: string) => ipcRenderer.invoke("notify:show", title, body),
+  },
+
+  recent: {
+    list: () => ipcRenderer.invoke("recent:list"),
+    add: (filePath: string) => ipcRenderer.invoke("recent:add", filePath),
+  },
+
+  backup: {
+    run: () => ipcRenderer.invoke("backup:run"),
+    status: () => ipcRenderer.invoke("backup:status"),
   },
 });

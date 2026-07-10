@@ -35,6 +35,17 @@ interface ElectronAPI {
     set: (key: string, value: unknown) => Promise<void>;
     delete: (key: string) => Promise<void>;
   };
+  notifications: {
+    show: (title: string, body: string) => Promise<void>;
+  };
+  recent: {
+    list: () => Promise<string[]>;
+    add: (filePath: string) => Promise<void>;
+  };
+  backup: {
+    run: () => Promise<{ success: boolean }>;
+    status: () => Promise<{ total: number; latest: { name: string; size: number; date: string } | null; backups: unknown[] }>;
+  };
 }
 
 declare global {
@@ -85,6 +96,26 @@ export function useElectron() {
     api.file.openInExplorer(itemPath);
   }
 
+  function showNativeNotification(title: string, body: string) {
+    if (!api) return;
+    api.notifications.show(title, body);
+  }
+
+  async function getRecentFiles() {
+    if (!api) return [];
+    return api.recent.list();
+  }
+
+  async function runBackup() {
+    if (!api) return;
+    return api.backup.run();
+  }
+
+  async function getBackupStatus() {
+    if (!api) return null;
+    return api.backup.status();
+  }
+
   return {
     isElectron,
     api,
@@ -92,5 +123,9 @@ export function useElectron() {
     openFileDialog,
     openFolderDialog,
     openInExplorer,
+    showNativeNotification,
+    getRecentFiles,
+    runBackup,
+    getBackupStatus,
   };
 }
