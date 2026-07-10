@@ -10,6 +10,7 @@ import ThreatIntel from "./pages/ThreatIntel/ThreatIntel";
 import AIAssistant from "./pages/AI/AIAssistant";
 import Cases from "./pages/Cases/Cases";
 import Detection from "./pages/Detection/Detection";
+import Reports from "./pages/Reports";
 import MfaSettings from "./pages/MfaSettings";
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
             <Route path="/ai" element={<AIAssistant />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/detection" element={<Detection />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/mfa" element={<MfaSettings />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
