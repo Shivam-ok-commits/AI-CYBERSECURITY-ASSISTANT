@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("sentinel", {
   platform: process.platform,
+  isElectron: true,
+
   versions: {
     electron: process.versions.electron,
     node: process.versions.node,
@@ -29,8 +31,12 @@ contextBridge.exposeInMainWorld("sentinel", {
       ipcRenderer.invoke("file:open", options),
     save: (options?: { defaultPath?: string; filters?: { name: string; extensions: string[] }[] }) =>
       ipcRenderer.invoke("file:save", options),
+    openFolder: () => ipcRenderer.invoke("file:openFolder"),
+    openInExplorer: (itemPath: string) => ipcRenderer.invoke("file:openInExplorer", itemPath),
     read: (filePath: string) => ipcRenderer.invoke("file:read", filePath),
+    readBuffer: (filePath: string) => ipcRenderer.invoke("file:readBuffer", filePath),
     write: (filePath: string, data: string) => ipcRenderer.invoke("file:write", filePath, data),
+    getStats: (filePath: string) => ipcRenderer.invoke("file:getStats", filePath),
   },
 
   window: {

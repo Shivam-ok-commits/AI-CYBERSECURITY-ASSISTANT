@@ -1,4 +1,4 @@
-import { app, ipcMain, dialog, BrowserWindow } from "electron";
+import { app, ipcMain, dialog, shell, BrowserWindow } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import { createMainWindow, getMainWindow } from "./window";
@@ -114,6 +114,38 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("file:write", async (_event, filePath: string, data: string) => {
     fs.writeFileSync(filePath, data, "utf-8");
+  });
+
+  ipcMain.handle("file:openFolder", async (_event, options) => {
+    const win = getMainWindow();
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openDirectory"],
+    });
+    if (result.canceled) return null;
+    return result.filePaths[0] ?? null;
+  });
+
+  ipcMain.handle("file:openInExplorer", async (_event, itemPath: string) => {
+    const normalized = path.normalize(itemPath);
+    if (!fs.existsSync(normalized)) {
+      fs.mkdirSync(normalized, { recursive: true });
+    }
+    await shell.openPath(normalized);
+  });
+
+  ipcMain.handle("file:readBuffer", async (_event, filePath: string) => {
+    const buffer = fs.readFileSync(filePath);
+    return buffer.toString("base64");
+  });
+
+  ipcMain.handle("file:getStats", async (_event, filePath: string) => {
+    const stats = fs.statSync(filePath);
+    return {
+      size: stats.size,
+      name: path.basename(filePath),
+      ext: path.extname(filePath),
+    };
   });
 
   ipcMain.on("window:minimize", () => {

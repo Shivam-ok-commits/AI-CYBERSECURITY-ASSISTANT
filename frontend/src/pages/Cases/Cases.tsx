@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listCases, getCase, createCase, addEvidence, addComment } from "../../api/cases";
-import { FolderOpen, Plus, MessageSquare, Paperclip } from "lucide-react";
+import { FolderOpen, Plus, MessageSquare, Paperclip, ExternalLink } from "lucide-react";
 import { useToast } from "../../components/Toast";
+import { useElectron } from "../../hooks/useElectron";
+import { Button } from "../../components/ui/Button";
 
 export default function Cases() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -34,15 +36,33 @@ export default function Cases() {
     onError: () => toast("error", "Failed to add comment"),
   });
 
+  const { isElectron, openInExplorer, api } = useElectron();
+
+  const handleOpenEvidenceFolder = async () => {
+    if (!api) return;
+    const path = await api.app.getPath("userData");
+    openInExplorer(`${path}/uploads`);
+  };
+
   const severityColor = (s: string) => s === "critical" || s === "high" ? "text-red-400" : s === "medium" ? "text-yellow-400" : "text-green-400";
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Case Management</h1>
-        <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-          <Plus size={18} /> New Case
-        </button>
+        <div>
+          <h1 className="text-lg font-semibold text-text-primary">Case Management</h1>
+          <p className="text-sm text-text-secondary mt-1">Manage security incidents and investigations</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isElectron && (
+            <Button variant="secondary" size="sm" icon={<ExternalLink size={14} />} onClick={handleOpenEvidenceFolder}>
+              Open Evidence Folder
+            </Button>
+          )}
+          <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors">
+            <Plus size={16} /> New Case
+          </button>
+        </div>
       </div>
 
       {showCreate && (
