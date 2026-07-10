@@ -1,0 +1,15 @@
+{
+  "name": "sentinel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sentinel — AI-Powered Security Operations Platform",
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "dev:unix": "bash scripts/dev.sh",
+    "frontend:dev": "cd frontend && npm run dev",
+    "backend:dev": "uvicorn src.api:app --reload --port 8000",
+    "electron:dev": "cd electron && npm run dev",
+    "electron:build": "cd electron && npm run build",
+    "build": "cd frontend && npm run build && cd ../electron && npm run build"
+  }
+}

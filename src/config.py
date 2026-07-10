@@ -16,7 +16,7 @@ class Settings:
     jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "60"))
-    uploads_dir: str = str(BASE_DIR / "data" / "uploads")
+    uploads_dir: str = os.getenv("UPLOADS_DIR", str(BASE_DIR / "data" / "uploads"))
     virustotal_api_key: str = os.getenv("VIRUSTOTAL_API_KEY", "")
     abuseipdb_api_key: str = os.getenv("ABUSEIPDB_API_KEY", "")
     otx_api_key: str = os.getenv("OTX_API_KEY", "")

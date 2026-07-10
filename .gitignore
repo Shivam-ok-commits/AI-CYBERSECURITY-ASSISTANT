@@ -45,3 +45,10 @@ data/cache/
 
 # Docker
 ssl/*.pem
+
+# Electron
+electron/node_modules/
+electron/dist/
+electron/release/
+
+# Scripts is project-owned; no ignore needed except OS artifacts
