@@ -49,7 +49,7 @@ const navGroups: NavGroup[] = [
     label: "Settings",
     items: [
       { to: "/reports", label: "Reports", icon: FileBarChart },
-      { to: "/mfa", label: "Security", icon: Settings },
+      { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
@@ -62,7 +62,8 @@ const routeLabels: Record<string, string> = {
   cases: "Case Management",
   detection: "Detection Rules",
   reports: "Reports",
-  mfa: "Security Settings",
+  settings: "Settings",
+  mfa: "Settings",
 };
 
 export function Layout() {

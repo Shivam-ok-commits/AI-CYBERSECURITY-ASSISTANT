@@ -295,4 +295,14 @@ function registerIpcHandlers(): void {
   ipcMain.handle("storage:delete", (_event, key: string) => {
     store.delete(key);
   });
+
+  ipcMain.handle("settings:getAll", () => {
+    return store.store;
+  });
+
+  ipcMain.handle("settings:setAll", (_event, values: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(values)) {
+      store.set(key, value);
+    }
+  });
 }

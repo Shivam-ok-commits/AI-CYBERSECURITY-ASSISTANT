@@ -11,7 +11,7 @@ import AIAssistant from "./pages/AI/AIAssistant";
 import Cases from "./pages/Cases/Cases";
 import Detection from "./pages/Detection/Detection";
 import Reports from "./pages/Reports";
-import MfaSettings from "./pages/MfaSettings";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -34,7 +34,8 @@ function App() {
             <Route path="/cases" element={<Cases />} />
             <Route path="/detection" element={<Detection />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/mfa" element={<MfaSettings />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/mfa" element={<Settings />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
