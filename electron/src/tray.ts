@@ -32,11 +32,8 @@ function createTrayIcon(): Electron.NativeImage {
 
 function getRecentFiles(): string[] {
   try {
-    const store: any = new (require("electron-store"))({
-      name: "sentinel-settings",
-      cwd: path.join(app.getPath("userData"), "storage"),
-    });
-    return store.get("recentFiles") || [];
+    const { getSecureStore } = require("./secure-store");
+    return (getSecureStore().get("recentFiles") as string[]) || [];
   } catch {
     return [];
   }

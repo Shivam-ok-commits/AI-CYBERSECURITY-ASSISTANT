@@ -73,14 +73,14 @@ def get_case(case_id: int, user_id: int) -> dict | None:
     return _validate_case_access(case_id, user_id)
 
 
-def list_cases(user_id: int, is_archived: bool = False) -> list[dict]:
+def list_cases(user_id: int, is_archived: bool = False, limit: int = 50, offset: int = 0) -> list[dict]:
     with get_db() as conn:
         rows = conn.execute(
             """SELECT id, case_id, title, status, severity, case_type, assigned_analyst,
                       is_archived, created_at, updated_at
                FROM cases WHERE user_id = ? AND is_archived = ?
-               ORDER BY updated_at DESC""",
-            (user_id, 1 if is_archived else 0),
+               ORDER BY updated_at DESC LIMIT ? OFFSET ?""",
+            (user_id, 1 if is_archived else 0, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -159,13 +159,14 @@ def add_evidence(case_id: int, user_id: int, evidence_type: str, file_name: str 
     return dict(row)
 
 
-def list_evidence(case_id: int, user_id: int) -> list[dict]:
+def list_evidence(case_id: int, user_id: int, limit: int = 50, offset: int = 0) -> list[dict]:
     case = _validate_case_access(case_id, user_id)
     if not case:
         return []
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM case_evidence WHERE case_id = ? ORDER BY created_at DESC", (case_id,)
+            "SELECT * FROM case_evidence WHERE case_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (case_id, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 
@@ -212,13 +213,14 @@ def generate_report(case_id: int, user_id: int, req: dict) -> dict:
     return dict(row)
 
 
-def list_reports(case_id: int, user_id: int) -> list[dict]:
+def list_reports(case_id: int, user_id: int, limit: int = 50, offset: int = 0) -> list[dict]:
     case = _validate_case_access(case_id, user_id)
     if not case:
         return []
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT * FROM case_reports WHERE case_id = ? ORDER BY created_at DESC", (case_id,)
+            "SELECT * FROM case_reports WHERE case_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (case_id, limit, offset),
         ).fetchall()
     return [dict(r) for r in rows]
 

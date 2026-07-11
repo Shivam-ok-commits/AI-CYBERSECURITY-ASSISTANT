@@ -6,6 +6,7 @@ from src.services.ai_explainer import explain_general
 from src.services.ai_memory import get_history, save_message
 from src.services.ai_prompts import get_prompt
 from src.services.ai_rag import search_documents
+from src.services.ai_providers import get_provider
 
 SUGGESTED_QUESTIONS = [
     "What suspicious events were found?",
@@ -35,8 +36,9 @@ async def chat_completion(session_id: int, message: str, user_id: int) -> dict:
     suggested = _get_suggested_questions(local_reply)
     evidence = _extract_evidence(message, rag_context)
 
-    if settings.openai_api_key:
-        enhanced = await _try_openai(session_id, history, message, rag_context, local_reply)
+    provider = get_provider()
+    if provider.is_available():
+        enhanced = await _try_provider(provider, session_id, history, message, rag_context, local_reply)
         if enhanced:
             local_reply = enhanced
 
@@ -195,10 +197,8 @@ def _get_suggested_questions(reply: str) -> list[str]:
     return SUGGESTED_QUESTIONS[:4]
 
 
-async def _try_openai(session_id: int, history: list[dict], message: str, context: list[dict], fallback: str) -> str | None:
+async def _try_provider(provider, session_id: int, history: list[dict], message: str, context: list[dict], fallback: str) -> str | None:
     try:
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
         messages = [{"role": "system", "content": get_prompt("system")}]
         for h in history[-10:]:
             messages.append({"role": h["role"], "content": h["content"]})
@@ -206,8 +206,7 @@ async def _try_openai(session_id: int, history: list[dict], message: str, contex
             ctx_text = "\n".join(c["chunk_text"][:300] for c in context[:2])
             messages.append({"role": "system", "content": f"Relevant context:\n{ctx_text}"})
         messages.append({"role": "user", "content": message})
-        resp = await client.chat.completions.create(model="gpt-4o-mini", messages=messages, max_tokens=1000)
-        return resp.choices[0].message.content
+        return await provider.chat(messages)
     except Exception:
         return None
 

@@ -1,3 +1,14 @@
+import { API_BASE_URL } from "../api/config";
+
+export type UpdateStatus =
+  | { type: "idle" }
+  | { type: "checking" }
+  | { type: "available"; info: { version: string; releaseDate?: string; releaseNotes?: string } }
+  | { type: "not-available"; info: { version: string } }
+  | { type: "downloading"; percent: number; bytesPerSecond: number; total: number }
+  | { type: "downloaded"; info: { version: string } }
+  | { type: "error"; message: string };
+
 interface ElectronAPI {
   platform: string;
   isElectron: boolean;
@@ -46,6 +57,13 @@ interface ElectronAPI {
     run: () => Promise<{ success: boolean }>;
     status: () => Promise<{ total: number; latest: { name: string; size: number; date: string } | null; backups: unknown[] }>;
   };
+  update: {
+    check: () => Promise<void>;
+    download: () => Promise<void>;
+    install: () => Promise<void>;
+    getStatus: () => Promise<UpdateStatus>;
+    onStatusChange: (cb: (status: UpdateStatus) => void) => () => void;
+  };
 }
 
 declare global {
@@ -64,7 +82,7 @@ export function useElectron() {
     const stats = await api.file.getStats(filePath);
     const base64 = await api.file.readBuffer(filePath);
 
-    const response = await fetch("/api/v1/logs/upload", {
+    const response = await fetch(`${API_BASE_URL}/logs/upload`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${localStorage.getItem("token") || ""}` },
       body: (() => {
@@ -116,6 +134,31 @@ export function useElectron() {
     return api.backup.status();
   }
 
+  async function checkForUpdates() {
+    if (!api) return;
+    return api.update.check();
+  }
+
+  async function downloadUpdate() {
+    if (!api) return;
+    return api.update.download();
+  }
+
+  async function installUpdate() {
+    if (!api) return;
+    return api.update.install();
+  }
+
+  async function getUpdateStatus(): Promise<UpdateStatus | null> {
+    if (!api) return null;
+    return api.update.getStatus();
+  }
+
+  function onUpdateStatusChange(cb: (status: UpdateStatus) => void): () => void {
+    if (!api) return () => {};
+    return api.update.onStatusChange(cb);
+  }
+
   return {
     isElectron,
     api,
@@ -127,5 +170,10 @@ export function useElectron() {
     getRecentFiles,
     runBackup,
     getBackupStatus,
+    checkForUpdates,
+    downloadUpdate,
+    installUpdate,
+    getUpdateStatus,
+    onUpdateStatusChange,
   };
 }

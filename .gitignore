@@ -46,9 +46,22 @@ data/cache/
 # Docker
 ssl/*.pem
 
-# Electron
-electron/node_modules/
+# Node
+node_modules/
+package-lock.json
+
+# Build artifacts
+dist/
+frontend/dist/
 electron/dist/
 electron/release/
+build/
 
-# Scripts is project-owned; no ignore needed except OS artifacts
+# Generated scripts (compiled from TS)
+scripts/dev.js
+scripts/electron-watch.js
+
+# OS
+Thumbs.db
+.DS_Store
+NUL

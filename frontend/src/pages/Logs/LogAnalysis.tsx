@@ -28,7 +28,7 @@ export default function LogAnalysis() {
   const uploadMutation = useMutation({
     mutationFn: uploadLog,
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["analyses"] }); toast("success", "Log uploaded and analyzed"); },
-    onError: () => toast("error", "Upload failed"),
+    onError: (err) => toast("error", `Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`),
   });
 
   const handleNativeUpload = async () => {
@@ -40,8 +40,8 @@ export default function LogAnalysis() {
         await uploadFileViaBackend(p);
         queryClient.invalidateQueries({ queryKey: ["analyses"] });
         toast("success", "Log uploaded and analyzed");
-      } catch {
-        toast("error", `Failed to upload ${p}`);
+      } catch (err) {
+        toast("error", `Failed to upload ${p}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   };

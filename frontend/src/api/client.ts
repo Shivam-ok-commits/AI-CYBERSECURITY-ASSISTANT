@@ -1,8 +1,9 @@
 import axios from "axios";
+import { API_BASE_URL } from "./config";
 
 const api = axios.create({
-  baseURL: "/api/v1",
-  headers: { "Content-Type": "application/json" },
+  baseURL: API_BASE_URL,
+  timeout: 30_000,
 });
 
 api.interceptors.request.use((config) => {
@@ -14,7 +15,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) localStorage.removeItem("token");
+    if (err.response?.status === 401) {
+      // Token expired or invalid — clear it and dispatch an event so
+      // any UI component (like a session timeout banner) can react.
+      localStorage.removeItem("token");
+      window.dispatchEvent(new CustomEvent("sentinel:session-expired"));
+    }
     return Promise.reject(err);
   }
 );

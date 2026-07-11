@@ -1,5 +1,6 @@
 import { ChildProcess, spawn } from "child_process";
 import * as path from "path";
+import * as fs from "fs";
 import * as http from "http";
 import { app } from "electron";
 
@@ -23,12 +24,27 @@ function getProjectRoot(): string {
   return path.resolve(__dirname, "../..");
 }
 
-function getPythonPath(): string {
+function getBackendCommand(): { command: string; args: string[]; cwd: string } {
+  const ext = process.platform === "win32" ? ".exe" : "";
+
+  // In packaged mode, look for the bundled backend executable
   if (app.isPackaged) {
-    return "python";
+    const packagedExe = path.join(process.resourcesPath!, "backend", `sentinel-backend${ext}`);
+    if (fs.existsSync(packagedExe)) {
+      return { command: packagedExe, args: [], cwd: app.getPath("userData") };
+    }
   }
-  const venvPath = path.join(getProjectRoot(), ".venv", "Scripts", "python.exe");
-  return venvPath;
+
+  // Development or fallback: use Python directly
+  const projectRoot = getProjectRoot();
+  const venvPath = path.join(projectRoot, ".venv", "Scripts", `python${ext}`);
+  const python = fs.existsSync(venvPath) ? venvPath : "python";
+
+  return {
+    command: python,
+    args: ["-m", "uvicorn", "src.api:app", "--host", "127.0.0.1", "--port", String(DEFAULT_PORT), "--workers", "1", "--log-level", "info"],
+    cwd: projectRoot,
+  };
 }
 
 export class BackendManager {
@@ -37,6 +53,7 @@ export class BackendManager {
   private status: BackendStatus = "stopped";
   private listeners: Set<StatusListener> = new Set();
   private shutdownTimer: ReturnType<typeof setTimeout> | null = null;
+  private logStream: fs.WriteStream | null = null;
 
   constructor(port: number = DEFAULT_PORT) {
     this.port = port;
@@ -68,45 +85,79 @@ export class BackendManager {
       return;
     }
 
-    this.setStatus("starting");
+    // In dev mode, backend is started externally by the dev script
+    if (!app.isPackaged) {
+      const ok = await this.waitForHealth();
+      if (ok) {
+        this.setStatus("running");
+        return;
+      }
+      this.setStatus("error", "Backend not running. Start it with: uvicorn src.api:app --reload --port 8000");
+      return;
+    }
 
-    const projectRoot = getProjectRoot();
-    const python = getPythonPath();
-    const apiModule = "src.api";
-    const args = [
-      "-m", "uvicorn", apiModule,
-      "--host", "127.0.0.1",
-      "--port", String(this.port),
-      "--workers", "2",
-      "--log-level", "info",
-    ];
+    this.setStatus("starting");
 
     const userData = app.getPath("userData");
     const databasePath = path.join(userData, "sentinel.db");
     const uploadsDir = path.join(userData, "uploads");
 
-    this.process = spawn(python, args, {
-      cwd: projectRoot,
+    const { command, args, cwd } = getBackendCommand();
+
+    // Read user settings from secure store
+    const { getSecureStore } = require("./secure-store");
+    const settings = getSecureStore().getAll();
+
+    // In packaged mode, hide the backend console window and log to file.
+    // The backend EXE is built with --noconsole (Windows GUI subsystem), but
+    // `windowsHide: true` adds extra protection against flash console windows.
+    // Only pass known env vars to the backend — never leak process.env
+    const spawnOptions: any = {
+      cwd,
       stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
       env: {
-        ...process.env,
+        // Runtime essentials
+        PATH: process.env.PATH || "",
+        SYSTEMROOT: process.env.SYSTEMROOT || "",
+        // Backend configuration
         PYTHONUNBUFFERED: "1",
         DATABASE_PATH: databasePath,
         UPLOADS_DIR: uploadsDir,
+        AI_PROVIDER: (settings.aiProvider as string) || "openai",
+        OPENAI_API_KEY: (settings.openaiApiKey as string) || "",
+        GEMINI_API_KEY: (settings.geminiApiKey as string) || "",
+        ANTHROPIC_API_KEY: (settings.anthropicApiKey as string) || "",
+        OLLAMA_BASE_URL: (settings.ollamaBaseUrl as string) || "",
+        OLLAMA_MODEL: (settings.ollamaModel as string) || "llama3.2",
+        LMSTUDIO_BASE_URL: (settings.lmstudioBaseUrl as string) || "",
+        LMSTUDIO_MODEL: (settings.lmstudioModel as string) || "local-model",
+        VIRUSTOTAL_API_KEY: (settings.virustotalApiKey as string) || "",
+        ABUSEIPDB_API_KEY: (settings.abuseipdbApiKey as string) || "",
+        OTX_API_KEY: (settings.otxApiKey as string) || "",
+        NVD_API_KEY: (settings.nvdApiKey as string) || "",
       },
-    });
+    };
+
+    this.process = spawn(command, args, spawnOptions);
 
     const proc = this.process;
     this.setStatus("starting");
 
+    // Pipe backend logs to a file instead of stdout in production
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const logPath = path.join(logsDir, "sentinel-backend.log");
+    this.logStream = fs.createWriteStream(logPath, { flags: "a" });
+
+    this.logStream.write(`\n--- Backend started at ${new Date().toISOString()} ---\n`);
+
     proc.stdout?.on("data", (data: Buffer) => {
-      const text = data.toString();
-      process.stdout.write(`[backend] ${text}`);
+      this.logStream?.write(`[stdout] ${data}`);
     });
 
     proc.stderr?.on("data", (data: Buffer) => {
-      const text = data.toString();
-      process.stderr.write(`[backend:err] ${text}`);
+      this.logStream?.write(`[stderr] ${data}`);
     });
 
     proc.on("error", (err: Error) => {
@@ -116,6 +167,12 @@ export class BackendManager {
 
     proc.on("exit", (code: number | null, signal: string | null) => {
       if (this.process === proc) {
+        // Close the log stream so we don't orphan file handles on crash
+        if (this.logStream) {
+          this.logStream.end(`\n--- Backend exited (code=${code}, signal=${signal}) at ${new Date().toISOString()} ---\n`);
+          this.logStream = null;
+        }
+
         if (code !== 0 && this.status !== "stopped") {
           this.setStatus("error", `Process exited with code ${code ?? signal}`);
         } else {
@@ -184,12 +241,17 @@ export class BackendManager {
       this.shutdownTimer = null;
     }
 
+    if (this.logStream) {
+      this.logStream.end(`\n--- Backend stopped at ${new Date().toISOString()} ---\n`);
+      this.logStream = null;
+    }
+
     if (this.process) {
       const proc = this.process;
       this.setStatus("stopped");
 
       if (process.platform === "win32") {
-        spawn("taskkill", ["/pid", String(proc.pid), "/f", "/t"]);
+        spawn("taskkill", ["/pid", String(proc.pid), "/f", "/t"], { windowsHide: true });
       } else {
         proc.kill("SIGTERM");
         this.shutdownTimer = setTimeout(() => {

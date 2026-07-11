@@ -70,6 +70,12 @@ class RecommendationResponse(BaseModel):
     detection_improvements: list[str] = []
 
 
+class AIProviderInfo(BaseModel):
+    name: str
+    available: bool
+    requires_api_key: bool
+
+
 class TimelineAnalysisResponse(BaseModel):
     timeline: list[dict] = []
     attack_stages: list[str] = []

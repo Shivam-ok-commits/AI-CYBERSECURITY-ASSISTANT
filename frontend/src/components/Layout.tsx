@@ -11,6 +11,7 @@ import {
   Radar,
   FileBarChart,
   Settings,
+  Puzzle,
   Bell,
   LogOut,
   ChevronLeft,
@@ -49,6 +50,7 @@ const navGroups: NavGroup[] = [
     label: "Settings",
     items: [
       { to: "/reports", label: "Reports", icon: FileBarChart },
+      { to: "/plugins", label: "Plugins", icon: Puzzle },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },
@@ -62,6 +64,7 @@ const routeLabels: Record<string, string> = {
   cases: "Case Management",
   detection: "Detection Rules",
   reports: "Reports",
+  plugins: "Plugins",
   settings: "Settings",
   mfa: "Settings",
 };

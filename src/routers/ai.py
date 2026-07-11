@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.database import get_db
 from src.schemas.ai import (
+    AIProviderInfo,
     ChatRequest,
     ChatResponse,
     ChatSessionCreate,
@@ -27,6 +28,35 @@ from src.services.ai_rag import index_log_content, search_documents
 from src.services.auth import get_current_user
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+# ── Providers ──
+
+@router.get("/providers", response_model=list[AIProviderInfo])
+def list_ai_providers():
+    from src.services.ai_providers import list_providers
+    return list_providers()
+
+
+@router.get("/providers/active", response_model=AIProviderInfo)
+def get_active_provider():
+    from src.services.ai_providers import get_provider
+    provider = get_provider()
+    return {"name": provider.name, "available": provider.is_available(), "requires_api_key": provider.requires_api_key}
+
+
+@router.post("/providers/switch")
+def switch_provider(body: dict):
+    name = body.get("provider", "")
+    from src.services.ai_providers import get_provider, list_providers
+    available = {p["name"] for p in list_providers()}
+    if name not in available:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown provider: {name}")
+    provider = get_provider(name)
+    return {"name": provider.name, "available": provider.is_available(), "requires_api_key": provider.requires_api_key}
+
+
+# ── Sessions ──
 
 
 def _get_log_events(log_id: int, user_id: int) -> list[dict]:

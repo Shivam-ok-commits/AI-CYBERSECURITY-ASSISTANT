@@ -2,16 +2,22 @@
   "name": "sentinel-desktop",
   "version": "1.0.0",
   "private": true,
+  "description": "Sentinel — AI-Powered Security Operations Platform",
+  "author": "Sentinel Team",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "dev": "electron .",
     "build": "tsc",
-    "build:prod": "tsc && electron-builder",
+    "watch": "tsc --watch --preserveWatchOutput",
+    "build:prod": "tsc && electron-builder --win",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable",
+    "clean": "powershell -Command \"Remove-Item -Recurse -Force 'dist', 'release' -ErrorAction SilentlyContinue\""
   },
   "dependencies": {
-    "electron-store": "^10.0.0"
+    "electron-updater": "^6.6.0"
   },
   "devDependencies": {
     "electron": "^35.0.0",
@@ -21,31 +27,77 @@
   "build": {
     "appId": "com.sentinel.desktop",
     "productName": "Sentinel",
+    "copyright": "Copyright © 2026 Sentinel Team",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "assets"
     },
     "files": [
       "dist/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "dist/**/*"
+    ],
     "extraResources": [
       {
         "from": "../frontend/dist",
-        "to": "frontend"
+        "to": "frontend",
+        "filter": [
+          "**/*"
+        ]
       },
       {
-        "from": "../storage",
-        "to": "storage"
+        "from": "../dist/backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
-      "target": ["nsis"],
-      "icon": "assets/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName} ${version} Setup.${ext}",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sentinel",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "license": "../LICENSE",
+      "runAfterFinish": true,
+      "artifactName": "Sentinel Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Sentinel Portable.${ext}",
+      "requestExecutionLevel": "user",
+      "unpackDirName": "sentinel-portable"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "sentinel",
+      "repo": "sentinel-desktop",
+      "releaseType": "draft"
     }
   }
 }

@@ -7,3 +7,4 @@ from src.routers.case_management import router as case_management_router
 from src.routers.dashboard import router as dashboard_router
 from src.routers.detection import router as detection_router
 from src.routers.enterprise import router as enterprise_router
+from src.routers.plugins import router as plugins_router

@@ -17,3 +17,20 @@ export const getRecommendations = (logId: number) =>
 
 export const explainLog = (text: string) =>
   api.post("/ai/explain", { text }).then((r) => r.data);
+
+// ── AI Providers ──
+
+export interface AIProviderInfo {
+  name: string;
+  available: boolean;
+  requires_api_key: boolean;
+}
+
+export const listProviders = () =>
+  api.get<AIProviderInfo[]>("/ai/providers").then((r) => r.data);
+
+export const getActiveProvider = () =>
+  api.get<AIProviderInfo>("/ai/providers/active").then((r) => r.data);
+
+export const switchProvider = (provider: string) =>
+  api.post<AIProviderInfo>("/ai/providers/switch", { provider }).then((r) => r.data);

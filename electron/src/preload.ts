@@ -78,4 +78,16 @@ contextBridge.exposeInMainWorld("sentinel", {
     run: () => ipcRenderer.invoke("backup:run"),
     status: () => ipcRenderer.invoke("backup:status"),
   },
+
+  update: {
+    check: () => ipcRenderer.invoke("update:check"),
+    download: () => ipcRenderer.invoke("update:download"),
+    install: () => ipcRenderer.invoke("update:install"),
+    getStatus: () => ipcRenderer.invoke("update:status"),
+    onStatusChange: (cb: (status: unknown) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: unknown) => cb(status);
+      ipcRenderer.on("update:status", handler);
+      return () => ipcRenderer.removeListener("update:status", handler);
+    },
+  },
 });

@@ -126,8 +126,13 @@ def create_case_endpoint(body: CaseCreate, user: dict = Depends(get_current_user
 
 
 @router.get("", response_model=list[CaseListResponse])
-def list_cases_endpoint(archived: bool = Query(False), user: dict = Depends(get_current_user)):
-    return list_cases(user["id"], archived)
+def list_cases_endpoint(
+    archived: bool = Query(False),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+):
+    return list_cases(user["id"], archived, limit=limit, offset=offset)
 
 
 @router.get("/{case_id}", response_model=CaseResponse)
@@ -191,8 +196,13 @@ def add_evidence_endpoint(case_id: int, body: EvidenceCreate, user: dict = Depen
 
 
 @router.get("/{case_id}/evidence", response_model=list[EvidenceResponse])
-def list_evidence_endpoint(case_id: int, user: dict = Depends(get_current_user)):
-    return list_evidence(case_id, user["id"])
+def list_evidence_endpoint(
+    case_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+):
+    return list_evidence(case_id, user["id"], limit=limit, offset=offset)
 
 
 @router.delete("/{case_id}/evidence/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -210,8 +220,13 @@ def generate_report_endpoint(case_id: int, body: ReportGenerateRequest, user: di
 
 
 @router.get("/{case_id}/reports", response_model=list[ReportResponse])
-def list_reports_endpoint(case_id: int, user: dict = Depends(get_current_user)):
-    return list_reports(case_id, user["id"])
+def list_reports_endpoint(
+    case_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_current_user),
+):
+    return list_reports(case_id, user["id"], limit=limit, offset=offset)
 
 
 @router.get("/{case_id}/reports/{report_id}/export")

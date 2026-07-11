@@ -1,63 +1,26 @@
-# Sentinel
-
-> AI-Powered Security Operations Platform
+# Sentinel — AI-Powered Security Operations Platform
 
 Sentinel is an AI-assisted cybersecurity platform designed to help security analysts investigate incidents, analyze logs, enrich Indicators of Compromise (IOCs), manage investigations, and generate incident reports from a single interface.
 
-The project combines FastAPI, React, AI-powered analysis, threat intelligence integrations, detection rules, and case management into a modern Security Operations Center (SOC) workflow.
+The project combines FastAPI, React, Electron, AI-powered analysis, threat intelligence integrations, detection rules, and case management into a modern Security Operations Center (SOC) workflow.
 
 ---
 
-## Version
+## Features
 
-Current Release: **Sentinel v1.0**
-
-Status:
-
-- Backend: Stable
-- Frontend: In Development
-- Desktop Version: Planned (Version 2)
-
----
-
-# Features
-
-## Authentication
-
+### Authentication
 - JWT Authentication
 - Role-Based Access Control (RBAC)
 - Multi-Factor Authentication (TOTP)
 - Organization Support
 - API Usage Tracking
 
----
+### Log Analysis
+Supports Windows Event Logs, Syslog, Apache Logs, Nginx Logs, JSON Logs, CSV Logs, XML Logs.
 
-## Log Analysis
+Capabilities: log parsing, event extraction, timeline generation, brute-force detection, suspicious PowerShell detection, privilege escalation indicators, attack chain reconstruction.
 
-Supports:
-
-- Windows Event Logs
-- Syslog
-- Apache Logs
-- Nginx Logs
-- JSON Logs
-- CSV Logs
-- XML Logs
-
-Capabilities:
-
-- Log parsing
-- Event extraction
-- Timeline generation
-- Brute-force detection
-- Suspicious PowerShell detection
-- Privilege escalation indicators
-- Attack chain reconstruction
-
----
-
-## Threat Intelligence
-
+### Threat Intelligence
 - IOC Extraction
 - VirusTotal Integration
 - AbuseIPDB Integration
@@ -67,10 +30,7 @@ Capabilities:
 - IOC Correlation
 - Threat Feed Aggregation
 
----
-
-## AI Investigation Assistant
-
+### AI Investigation Assistant
 - AI Chat
 - Log Investigation
 - Security Event Explanation
@@ -79,21 +39,14 @@ Capabilities:
 - Report Assistance
 - Context-Aware Conversations
 
----
-
-## Case Management
-
+### Case Management
 - Investigation Cases
 - Evidence Management
 - Comments & Notes
 - Investigation Timeline
-- Report Generation
-- PDF / HTML / JSON Export
+- Report Generation (PDF / HTML / JSON Export)
 
----
-
-## Detection Engineering
-
+### Detection Engineering
 - Sigma Rules
 - YARA Rules
 - Custom Detection Rules
@@ -101,10 +54,7 @@ Capabilities:
 - Rule Testing
 - Workflow Playbooks
 
----
-
-## Dashboard
-
+### Dashboard
 - Security Overview
 - Alert Center
 - Risk Score
@@ -113,10 +63,7 @@ Capabilities:
 - Threat Statistics
 - User Activity
 
----
-
-## Enterprise Features
-
+### Enterprise Features
 - SIEM Integrations
 - EDR Integrations
 - Cloud Integrations
@@ -125,114 +72,79 @@ Capabilities:
 
 ---
 
-# Technology Stack
+## Technology Stack
 
-## Backend
-
-- FastAPI
-- SQLAlchemy
-- SQLite
-- JWT Authentication
-- Pydantic
-
-## Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- TanStack Query
-
-## AI
-
-- OpenAI
-- Local AI Fallback
-
-## Security
-
-- Sigma
-- YARA
-- VirusTotal
-- AbuseIPDB
-- AlienVault OTX
-- NVD
-- CISA KEV
-
-## DevOps
-
-- Docker
-- Docker Compose
-- GitHub Actions
+| Layer | Technologies |
+|-------|-------------|
+| Backend | FastAPI, SQLAlchemy, SQLite, JWT, Pydantic |
+| Frontend | React, TypeScript, Vite, Tailwind CSS, TanStack Query |
+| Desktop | Electron, electron-builder |
+| AI | OpenAI, Anthropic, Gemini, Ollama, LM Studio |
+| Security | Sigma, YARA, VirusTotal, AbuseIPDB, AlienVault OTX, NVD, CISA KEV |
+| DevOps | Docker, Docker Compose, GitHub Actions |
 
 ---
 
-# Project Structure
+## Development Workflow
 
 ```
-Sentinel/
-
-├── frontend/
-├── src/
-├── tests/
-├── deploy/
-├── docs/
-├── data/
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
+Develop
+    ↓
+Electron Dev Mode   ←  npm run dev
+    ↓
+Commit
+    ↓
+Package             ←  npm run package
+    ↓
+Test Installer
+    ↓
+Release
 ```
+
+**Always develop in Electron Dev Mode.** Do not run the packaged installer during development. The dev mode gives you hot reload, live error feedback, and full console output.
 
 ---
 
-# Quick Start
+## Quick Start
 
-## Clone Repository
+### Prerequisites
+- **Node.js** 20+
+- **Python** 3.12+ (with `.venv` virtual environment)
+- **npm** dependencies installed
+
+### One-Command Dev
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Sentinel.git
-
-cd Sentinel
-```
-
----
-
-## Backend
-
-```bash
-python -m venv .venv
-
-source .venv/bin/activate
-# Windows
-.venv\Scripts\activate
-
-python -m pip install -r requirements.txt
-
-uvicorn src.api:app --reload
-```
-
----
-
-## Frontend
-
-```bash
-cd frontend
-
-npm install
-
 npm run dev
 ```
 
----
+This single command starts everything:
 
-## Run Tests
+| Service    | Technology         | Hot Reload                |
+|------------|--------------------|---------------------------|
+| Backend    | FastAPI (uvicorn)  | `--reload` (save .py)     |
+| Frontend   | React (Vite)       | HMR (save .tsx/.ts)       |
+| Electron   | TSC watch + reload | Auto-restart (save .ts)   |
+
+All output appears in **one terminal** with color-coded prefixes.
+
+### Manual Dev (per-service)
 
 ```bash
-pytest
+# Backend only
+python -m uvicorn src.api:app --reload --host 127.0.0.1 --port 8000
+
+# Frontend only (another terminal)
+cd frontend && npm run dev
+
+# Electron only (after backend + frontend are running)
+cd electron && npm run watch   # compile TypeScript
+cd electron && npx electron .  # launch Electron
 ```
 
 ---
 
-## Docker
+### Docker
 
 ```bash
 docker compose up --build
@@ -240,10 +152,100 @@ docker compose up --build
 
 ---
 
-# Roadmap
+### Packaging (for release)
 
-## Version 1
+Build the production installer:
 
+```bash
+npm run package
+```
+
+This runs the full pipeline:
+1. **Clean** — removes all previous build artifacts
+2. **Frontend** — builds React + Vite into `frontend/dist/`
+3. **Electron** — compiles TypeScript into `electron/dist/`
+4. **Backend** — bundles Python into a standalone EXE (PyInstaller)
+5. **electron-builder** — creates `Sentinel Setup.exe` and `Sentinel Portable.exe`
+
+Output: `electron/release/`
+
+---
+
+## Project Structure
+
+```
+sentinel/
+├── frontend/           # React + Vite (UI)
+│   ├── src/
+│   │   ├── api/        # API client (centralized base URL)
+│   │   ├── components/ # Shared UI components
+│   │   ├── pages/      # Route pages
+│   │   └── hooks/      # React hooks (useElectron, etc.)
+│   └── vite.config.ts
+├── electron/           # Electron shell (desktop wrapper)
+│   ├── src/
+│   │   ├── main.ts     # App entry point + IPC handlers
+│   │   ├── startup.ts  # Startup orchestration (splash → backend → frontend)
+│   │   ├── backend.ts  # Backend process manager
+│   │   ├── window.ts   # Window creation + lifecycle
+│   │   ├── tray.ts     # System tray
+│   │   └── updater.ts  # Auto-updater
+│   └── package.json    # electron-builder config
+├── src/                # Python FastAPI backend
+│   ├── api.py          # FastAPI app
+│   ├── config.py       # Settings
+│   ├── database.py     # SQLite
+│   ├── routers/        # API routes
+│   └── services/       # Business logic
+├── scripts/
+│   ├── dev.js          # One-command dev orchestrator
+│   ├── dev.ps1         # PowerShell dev (legacy)
+│   └── package.ps1     # Packaging pipeline
+└── package.json        # Root scripts
+```
+
+---
+
+## Scripts Reference
+
+| Command              | Description                                   |
+|----------------------|-----------------------------------------------|
+| `npm run dev`        | Start all services in dev mode (one terminal) |
+| `npm run dev:legacy` | Start dev mode via PowerShell (separate windows) |
+| `npm run build`      | Build frontend + Electron TypeScript          |
+| `npm run build:backend` | Build backend PyInstaller EXE              |
+| `npm run package`    | Full production packaging pipeline            |
+| `npm run clean`      | Remove all build artifacts                    |
+
+---
+
+## Architecture Notes
+
+### Single Instance
+Sentinel uses `app.requestSingleInstanceLock()`. Launching a second instance focuses the existing window.
+
+### Startup Sequence
+1. Splash screen displayed immediately
+2. Backend process started (with retries)
+3. Health check (`/api/v1/health`) confirms backend is ready
+4. React frontend loaded into the window
+5. System tray created
+
+If the backend fails to start after 3 attempts, an error screen is displayed and the app exits.
+
+### API URL
+All frontend API requests use a centralized `API_BASE_URL` from `frontend/src/api/config.ts`. It auto-detects:
+- **Electron (file://)**: `http://127.0.0.1:8000/api/v1`
+- **Browser (Vite/nginx)**: `/api/v1` (relative — proxy handles routing)
+
+### Database
+SQLite is used for all persistence. The backend uses 1 worker (SQLite cannot handle concurrent writes from multiple processes).
+
+---
+
+## Roadmap
+
+### Version 1
 - Authentication
 - Log Analysis
 - Threat Intelligence
@@ -253,10 +255,7 @@ docker compose up --build
 - Dashboard
 - Reports
 
----
-
-## Version 2
-
+### Version 2
 - Professional SOC Interface
 - Desktop Application (Electron)
 - Native File Explorer Integration
@@ -265,10 +264,7 @@ docker compose up --build
 - Interactive IOC Graph
 - Enhanced AI Copilot
 
----
-
-## Version 3
-
+### Version 3
 - PCAP Analysis
 - Malware Static Analysis
 - Memory Forensics
@@ -278,30 +274,18 @@ docker compose up --build
 
 ---
 
-# Screenshots
-
-Coming Soon
-
-- Dashboard
-- Log Analysis
-- Threat Intelligence
-- AI Investigation
-- Case Management
-
----
-
-# License
+## License
 
 MIT License
 
 ---
 
-# Author
+## Author
 
 **Shivam Singh**
 
 ---
 
-# Disclaimer
+## Disclaimer
 
 Sentinel is intended for cybersecurity research, education, and defensive security operations. Users are responsible for complying with all applicable laws and regulations when using external threat intelligence services or analyzing security data.

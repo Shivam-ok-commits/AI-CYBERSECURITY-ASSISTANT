@@ -1,9 +1,7 @@
 import api from "./client";
 
 export const uploadLog = (formData: FormData) =>
-  api.post("/logs/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }).then((r) => r.data);
+  api.post("/logs/upload", formData).then((r) => r.data);
 
 export const getAnalyses = () =>
   api.get("/logs").then((r) => r.data);

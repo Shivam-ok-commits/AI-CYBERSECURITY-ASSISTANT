@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { setupMfa, enableMfa, disableMfa } from "../api/auth";
 import { useToast } from "../components/Toast";
-import { useElectron } from "../hooks/useElectron";
+import { useElectron, type UpdateStatus } from "../hooks/useElectron";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
 import { Tabs } from "../components/ui/Tabs";
+import { listProviders, type AIProviderInfo } from "../api/ai";
 import {
   Sun, Moon, Cpu, Database, HardDrive, RefreshCw, Shield,
-  Globe, Network, Key, Smartphone,
+  Globe, Network, Key, Smartphone, CheckCircle, XCircle,
   Save, FolderOpen, Server,
 } from "lucide-react";
 
@@ -21,6 +22,12 @@ const SETTINGS_KEYS = [
   "theme",
   "aiProvider",
   "openaiApiKey",
+  "geminiApiKey",
+  "anthropicApiKey",
+  "ollamaBaseUrl",
+  "ollamaModel",
+  "lmstudioBaseUrl",
+  "lmstudioModel",
   "backendPort",
   "logLevel",
   "autoUpdate",
@@ -62,6 +69,10 @@ export default function Settings() {
     // Defaults
     if (!loaded.theme) loaded.theme = "dark";
     if (!loaded.aiProvider) loaded.aiProvider = "openai";
+    if (!loaded.ollamaBaseUrl) loaded.ollamaBaseUrl = "http://localhost:11434";
+    if (!loaded.ollamaModel) loaded.ollamaModel = "llama3.2";
+    if (!loaded.lmstudioBaseUrl) loaded.lmstudioBaseUrl = "http://localhost:1234";
+    if (!loaded.lmstudioModel) loaded.lmstudioModel = "local-model";
     if (!loaded.backendPort) loaded.backendPort = "8000";
     if (!loaded.logLevel) loaded.logLevel = "info";
     if (!loaded.autoUpdate) loaded.autoUpdate = "true";
@@ -161,7 +172,90 @@ export default function Settings() {
   );
 }
 
+const PROVIDER_OPTIONS: { value: string; label: string; description: string }[] = [
+  { value: "openai", label: "OpenAI", description: "GPT-4o-mini (requires API key)" },
+  { value: "gemini", label: "Gemini", description: "Gemini 2.0 Flash (requires API key)" },
+  { value: "anthropic", label: "Anthropic", description: "Claude Sonnet 4 (requires API key)" },
+  { value: "ollama", label: "Ollama", description: "Local LLM (no API key needed)" },
+  { value: "lmstudio", label: "LM Studio", description: "Local LLM (no API key needed)" },
+];
+
+const PROVIDER_API_KEYS: Record<string, { key: string; label: string; type: string; placeholder: string }[]> = {
+  openai: [{ key: "openaiApiKey", label: "API Key", type: "password", placeholder: "sk-..." }],
+  gemini: [{ key: "geminiApiKey", label: "API Key", type: "password", placeholder: "AIza..." }],
+  anthropic: [{ key: "anthropicApiKey", label: "API Key", type: "password", placeholder: "sk-ant-..." }],
+  ollama: [
+    { key: "ollamaBaseUrl", label: "Base URL", type: "text", placeholder: "http://localhost:11434" },
+    { key: "ollamaModel", label: "Model", type: "text", placeholder: "llama3.2" },
+  ],
+  lmstudio: [
+    { key: "lmstudioBaseUrl", label: "Base URL", type: "text", placeholder: "http://localhost:1234" },
+    { key: "lmstudioModel", label: "Model", type: "text", placeholder: "local-model" },
+  ],
+};
+
 function GeneralSection({ settings, onUpdate, isElectron }: { settings: SettingsData; onUpdate: (k: string, v: string) => void; isElectron: boolean }) {
+  const { data: providers } = useQuery({ queryKey: ["ai-providers"], queryFn: listProviders, retry: false, enabled: isElectron });
+  const { checkForUpdates, downloadUpdate, installUpdate, getUpdateStatus, onUpdateStatusChange } = useElectron();
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateChecking, setUpdateChecking] = useState(false);
+  const activeProvider = settings.aiProvider || "openai";
+
+  useEffect(() => {
+    if (!isElectron) return;
+    getUpdateStatus().then(setUpdateStatus);
+    const unsub = onUpdateStatusChange(setUpdateStatus);
+    return unsub;
+  }, [isElectron]);
+
+  const getProviderStatus = (name: string): "available" | "unavailable" | "unknown" => {
+    if (!providers) return "unknown";
+    const p = providers.find((p: AIProviderInfo) => p.name === name);
+    if (!p) return "unknown";
+    return p.available ? "available" : "unavailable";
+  };
+
+  const handleCheckForUpdates = async () => {
+    setUpdateChecking(true);
+    await checkForUpdates();
+    setUpdateChecking(false);
+  };
+
+  const renderUpdateStatus = () => {
+    if (!updateStatus || updateStatus.type === "idle") return null;
+    switch (updateStatus.type) {
+      case "checking":
+        return <p className="text-xs text-text-muted">Checking for updates...</p>;
+      case "available":
+        return (
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-text-primary">Version {updateStatus.info.version} available</p>
+            <Button variant="primary" size="sm" onClick={downloadUpdate}>Download</Button>
+          </div>
+        );
+      case "downloading":
+        return (
+          <div className="space-y-1">
+            <p className="text-xs text-text-muted">Downloading... {updateStatus.percent}%</p>
+            <div className="w-full bg-surface-secondary rounded-full h-1.5">
+              <div className="bg-primary h-1.5 rounded-full transition-all" style={{ width: `${updateStatus.percent}%` }} />
+            </div>
+          </div>
+        );
+      case "downloaded":
+        return (
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-text-primary">Update ready (v{updateStatus.info.version})</p>
+            <Button variant="primary" size="sm" onClick={installUpdate}>Restart & Install</Button>
+          </div>
+        );
+      case "not-available":
+        return <p className="text-xs text-text-muted">You're on the latest version</p>;
+      case "error":
+        return <p className="text-xs text-danger">Update check failed: {updateStatus.message}</p>;
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -189,14 +283,47 @@ function GeneralSection({ settings, onUpdate, isElectron }: { settings: Settings
       {isElectron && (
         <Card>
           <h2 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2"><Cpu size={16} className="text-primary" /> AI Provider</h2>
-          <div className="space-y-3">
-            <Input
-              label="OpenAI API Key"
-              type="password"
-              placeholder="sk-..."
-              value={settings.openaiApiKey || ""}
-              onChange={(e) => onUpdate("openaiApiKey", e.target.value)}
-            />
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-2">
+              {PROVIDER_OPTIONS.map((opt) => {
+                const status = getProviderStatus(opt.value);
+                const isActive = activeProvider === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => onUpdate("aiProvider", opt.value)}
+                    className={`flex items-start gap-3 p-3 rounded-lg text-sm border transition-colors text-left ${
+                      isActive
+                        ? "bg-primary/10 border-primary"
+                        : "bg-surface-secondary border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-text-primary">{opt.label}</span>
+                        {status === "available" && <CheckCircle size={14} className="text-success shrink-0" />}
+                        {status === "unavailable" && <XCircle size={14} className="text-danger shrink-0" />}
+                      </div>
+                      <p className="text-xs text-text-muted mt-0.5">{opt.description}</p>
+                    </div>
+                    {isActive && (
+                      <Badge variant="info">Active</Badge>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {PROVIDER_API_KEYS[activeProvider]?.map((field) => (
+              <Input
+                key={field.key}
+                label={field.label}
+                type={field.type as "text" | "password"}
+                placeholder={field.placeholder}
+                value={settings[field.key] || ""}
+                onChange={(e) => onUpdate(field.key, e.target.value)}
+              />
+            ))}
             <p className="text-xs text-text-muted">Requires backend restart to take effect.</p>
           </div>
         </Card>
@@ -215,9 +342,18 @@ function GeneralSection({ settings, onUpdate, isElectron }: { settings: Settings
             <span className="text-sm text-text-primary">Check for updates automatically</span>
           </label>
           {isElectron && (
-            <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />}>
-              Check for Updates
-            </Button>
+            <div className="space-y-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RefreshCw size={14} />}
+                onClick={handleCheckForUpdates}
+                loading={updateChecking}
+              >
+                Check for Updates
+              </Button>
+              {renderUpdateStatus()}
+            </div>
           )}
         </div>
       </Card>

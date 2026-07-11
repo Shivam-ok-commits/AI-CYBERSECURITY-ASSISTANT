@@ -729,3 +729,28 @@ def init_db():
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        # ── Performance indexes ──
+        perf_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_parsed_events_log_id ON parsed_events(log_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ioc_reputation_score ON ioc_reputation(threat_score)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_ioc_correlations_log_id ON ioc_correlations(log_id)",
+            "CREATE INDEX IF NOT EXISTS idx_api_metrics_endpoint ON api_metrics(endpoint)",
+            "CREATE INDEX IF NOT EXISTS idx_api_metrics_created ON api_metrics(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_parsed_events_severity ON parsed_events(severity)",
+            "CREATE INDEX IF NOT EXISTS idx_parsed_events_timestamp ON parsed_events(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_document_index_source ON document_index(source_type, source_id)",
+            "CREATE INDEX IF NOT EXISTS idx_uploaded_logs_user ON uploaded_logs(user_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_threat_cache_expires ON threat_cache(expires_at)",
+        ]
+        for idx_sql in perf_indexes:
+            try:
+                conn.execute(idx_sql)
+            except Exception:
+                pass
+        # ── FTS5 for RAG search ──
+        try:
+            conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS document_fts USING fts5(chunk_text, source_type, content='document_index', content_rowid='rowid')")
+        except Exception:
+            pass
